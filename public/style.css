@@ -22,3 +22,28 @@ dialog { width: calc(100% - 32px); max-width: 520px; max-height: calc(100dvh - 3
   input, select, form input { font-size: 16px; }
   footer { flex-wrap: wrap; gap: 12px; }
 }
+
+/* Chat history scrolls inside its panel rather than pushing the composer away. */
+.chat { min-height: 0; }
+#messages { flex: 0 0 auto; min-height: 0; max-height: 340px; overscroll-behavior: contain; }
+@media (max-width: 1000px) {
+  #messages { height: 160px; max-height: 160px; }
+}
+@media (max-width: 640px) {
+  .chat { order: 0; }
+  .playgrid > aside:not(.chat) { order: 1; }
+  body.game-active { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+  body.game-active #guessForm {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--keyboard-inset, 0px);
+    z-index: 20;
+    margin: 0;
+    padding: 12px 5% calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px #262b3010;
+  }
+  #guessForm button { flex: 0 0 48px; }
+}
