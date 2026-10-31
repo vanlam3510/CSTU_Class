@@ -1,0 +1,11 @@
+.gcloudignore
+.git
+node_modules
+.env
+.env.*
+*.zip
+*.base64.txt
+__pycache__
+venv
+.venv
+*.log

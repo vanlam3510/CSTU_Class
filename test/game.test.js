@@ -21,11 +21,13 @@ test('two devices: lobby, permissions, drawing, secret, scores, rematch and host
 test('round timer ends unanswered rounds',async t=>{const game=createGame({roundSeconds:1,breakMs:5000});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+game.server.address().port;const a=io(url),b=io(url);t.after(async()=>{a.disconnect();b.disconnect();await game.close();});await Promise.all([once(a,'connect'),once(b,'connect')]);let next=once(a,'state');a.emit('join',{create:true,name:'A'});const state=await next;next=once(b,'state');b.emit('join',{code:state.code,name:'B'});await next;next=once(b,'state',v=>v.phase==='break');a.emit('start');const ended=await next;assert.equal(ended.players.every(p=>p.score===0),true);assert.ok(ended.answer);});
 test('complete match reaches 600 points and host can rematch',async t=>{
  const game=createGame({breakMs:450});await new Promise(r=>game.server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+game.server.address().port;const a=io(url),b=io(url);t.after(async()=>{a.disconnect();b.disconnect();await game.close();});await Promise.all([once(a,'connect'),once(b,'connect')]);let next=once(a,'state');a.emit('join',{create:true,name:'A'});const initial=await next;next=once(b,'state');b.emit('join',{code:initial.code,name:'B'});await next;
+ const seen=new Set();
  let sa,sb;const collect=()=>Promise.all([once(a,'state',s=>s.phase==='drawing'),once(b,'state',s=>s.phase==='drawing')]);let started=collect();a.emit('start');[sa,sb]=await started;
  for(let round=0;round<12;round++){
  const drawer=sa.drawer===a.id?a:b,guesser=drawer===a?b:a,secret=drawer===a?sa.word:sb.word;
+ assert.equal(seen.has(secret),false,'A match must not repeat words');seen.add(secret);
  next=once(a,'state',s=>s.phase==='break'||s.phase==='finished');guesser.emit('guess',secret);const ended=await next;
- if(ended.phase==='finished'){assert.equal(ended.players.some(p=>p.score>=600),true);started=collect();a.emit('start');const rematch=await started;assert.equal(rematch[0].players.every(p=>p.score===0),true);return;}
+ if(ended.phase==='finished'){assert.equal(ended.players.some(p=>p.score>=600),true);started=collect();a.emit('start');const rematch=await started;assert.equal(rematch[0].players.every(p=>p.score===0),true);assert.equal(seen.has(rematch[0].word||rematch[1].word),false,'Rematches keep the room deck');return;}
  started=collect();[sa,sb]=await started;
  }
  assert.fail('Match did not finish');

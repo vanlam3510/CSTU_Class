@@ -1,17 +1,18 @@
 const express = require('express');
 const {createServer} = require('node:http');
 const {Server} = require('socket.io');
-const {randomInt, randomUUID} = require('node:crypto');
+const {randomUUID} = require('node:crypto');
+const {nextWord} = require('./words');
 function createGame({roundSeconds=60, breakMs=5000}={}) {
  const app=express(), server=createServer(app), io=new Server(server,{maxHttpBufferSize:16000});
  app.use(express.static(require('node:path').join(__dirname,'public')));
  app.get('/health',(_,res)=>res.json({ok:true}));
- const rooms=new Map(), words=['PIZZA','ROCKET','CAT','CASTLE','GUITAR','PENGUIN','SUNFLOWER','BICYCLE','ROBOT','VOLCANO','DRAGON','PIRATE','GHOST','RAINBOW','CAMERA','SUBMARINE'];
+ const rooms=new Map();
  const floor=score=>Math.min(5,1+Math.floor(score/150));
  const players=r=>r.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar,score:p.score,floor:floor(p.score),host:p.id===r.host}));
  function broadcast(r){for(const p of r.players) io.to(p.id).emit('state',{code:r.code,players:players(r),phase:r.phase,drawer:r.drawer,word:p.id===r.drawer?r.word:undefined,length:r.word.length,remaining:r.deadline?Math.max(0,Math.ceil((r.deadline-Date.now())/1000)):0,strokes:r.strokes,guessed:[...r.guessed],answer:r.phase==='break'||r.phase==='finished'?r.word:undefined,winner:r.winner});}
  function finish(r){if(r.phase!=='drawing')return; clearInterval(r.timer);r.timer=null; const d=r.players.find(p=>p.id===r.drawer);if(d)d.score+=25*r.guessed.size; const winner=[...r.players].sort((a,b)=>b.score-a.score).find(p=>p.score>=600);r.winner=winner?.name;r.phase=winner?'finished':'break';r.deadline=null;broadcast(r);if(!winner)r.next=setTimeout(()=>{if(r.players.length>=2)start(r);else {r.phase='lobby';broadcast(r);}},breakMs);}
- function start(r){clearTimeout(r.next);clearInterval(r.timer); const prev=r.players.findIndex(p=>p.id===r.drawer);r.drawer=r.players[(prev+1)%r.players.length].id;r.word=words[randomInt(words.length)];r.phase='drawing';r.strokes=[];r.guessed=new Set();r.deadline=Date.now()+roundSeconds*1000;broadcast(r);r.timer=setInterval(()=>{if(Date.now()>=r.deadline)finish(r);else io.to(r.code).emit('tick',Math.max(0,Math.ceil((r.deadline-Date.now())/1000)));},250);}
+ function start(r){clearTimeout(r.next);clearInterval(r.timer); const prev=r.players.findIndex(p=>p.id===r.drawer);r.drawer=r.players[(prev+1)%r.players.length].id;r.word=nextWord(r);r.phase='drawing';r.strokes=[];r.guessed=new Set();r.deadline=Date.now()+roundSeconds*1000;broadcast(r);r.timer=setInterval(()=>{if(Date.now()>=r.deadline)finish(r);else io.to(r.code).emit('tick',Math.max(0,Math.ceil((r.deadline-Date.now())/1000)));},250);}
  io.on('connection',s=>{
   let room;let lastGuess=0;let drawCount=0,drawWindow=Date.now();
   const error=message=>s.emit('notice',message);

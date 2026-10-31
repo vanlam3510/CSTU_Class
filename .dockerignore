@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+.env.*
+*.zip
+*.base64.txt
+__pycache__
+venv
+.venv
+*.log
